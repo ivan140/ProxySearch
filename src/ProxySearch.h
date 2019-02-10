@@ -4,6 +4,7 @@
 
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
+#include <Pinger.h>
 
 //Please define here a ProxyList API and its parameters
 #define PROXYLIST_ADDRESS "api.getproxylist.com"
@@ -18,8 +19,10 @@ class ProxySearch
 public: 
 	ProxySearch();
 	~ProxySearch();
-	char proxyServer[100];
-
+	char proxyIP[16];
+	char proxyPort[7];
+	Pinger p;
+	
 	bool checkProxyAPI();
 	bool getProxyServer();
 	bool testProxyServer(String url);

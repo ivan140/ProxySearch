@@ -1,10 +1,7 @@
 #include "ProxySearch.h"
-#include "ESP8266Ping.h"
-#include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
 
 ProxySearch::ProxySearch(){
-	
 }
 
 ProxySearch::~ProxySearch(){
@@ -12,9 +9,9 @@ ProxySearch::~ProxySearch(){
 
 bool ProxySearch::checkProxyAPI()
 {
-	if (!Ping.ping(PROXYLIST_ADDRESS, 5)) {
+	if (!p.Ping(PROXYLIST_ADDRESS)) {
 		Serial.println(PROXYLIST_ADDRESS + (String)" not found!");
-		if (!Ping.ping("8.8.8.8", 5))
+		if (!p.Ping("8.8.8.8"))
 			Serial.println("No ping to google!");
 		else {
 			
@@ -23,15 +20,14 @@ bool ProxySearch::checkProxyAPI()
 		Serial.println(PROXYLIST_ADDRESS + (String)" found!");
 		return true;
 	}
-
 	return false;
 }
 
-void fetchURL(BearSSL::WiFiClientSecure *client, const char *host, const uint16_t port, const char *path) {
+String fetchURL(BearSSL::WiFiClientSecure *client, const char *host, const uint16_t port, const char *path) {
   client->connect(host, port);
   if (!client->connected()) {
     Serial.printf("*** Can't connect. ***\n-------\n");
-    return;
+    return "";
   }
   Serial.printf("Connected!\n-------\n");
   client->write("GET ");
@@ -48,33 +44,24 @@ void fetchURL(BearSSL::WiFiClientSecure *client, const char *host, const uint16_
   String response = (String)client->readStringUntil('\r');
   Serial.print(response);
   client->stop();
+  return response;
 }
 
 bool ProxySearch::getProxyServer(){
 	BearSSL::WiFiClientSecure client;
-	static const uint8_t fp[] = {0xC9,0x67,0x1D,0x3B,0x1E,0x4C,0xD6,0x3D,0x62,0x7E,0xC3,0x06,0xBE,0xD7,0xE2,0x60,0x41,0xAF,0xAB,0x76};
-	client.setFingerprint(fp);
+	client.setInsecure();
 	String host = PROXYLIST_ADDRESS;
-	fetchURL(&client, PROXYLIST_ADDRESS, 443, "/proxy");
+	String json = fetchURL(&client, PROXYLIST_ADDRESS, 443, ((String)"/proxy?" + (String)PROXYLIST_NOTCOUNTRY + (String)"&" + (String)PROXYLIST_COUNTRY + (String)"&protocol=http").c_str());
+	DynamicJsonBuffer jsonBuffer;
+	if(json != ""){
+		JsonObject& root = jsonBuffer.parse(json);
+		if(root.success()){
+			strcpy(this->proxyIP,root["ip"].as<String>().c_str());
+			strcpy(this->proxyPort, root["port"].as<String>().c_str());
+		}
+	}	
 }
-/*
-bool ProxySearch::getProxyServer1(){
-	HTTPClient http;
-	String url = PROXYLIST_URL + (String)"?" + PROXYLIST_NOTCOUNTRY + (String)"&" + PROXYLIST_COUNTRY;// + (String)"&" +PROXYLIST_PARAMETERS;
-	Serial.println(url);
-	http.begin(url,"c9671d3b1e4cd63d627ec306bed7e26041afab76");
-	int httpCode = http.GET();
-	Serial.println("code: " + (String)httpCode);
-	if (httpCode > 0) {
-		String payload = http.getString();
-		Serial.println(payload);
-		DynamicJsonBuffer jsonBuffer;
-		JsonObject& root = jsonBuffer.parse(payload);
-		return true;
-	}
-	return false;
-}*/
 
 bool ProxySearch::testProxyServer(String url){
-	return false;
+	return p.Ping(this->proxyIP);
 }
